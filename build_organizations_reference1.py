@@ -4,7 +4,7 @@ import sqlite3 as sq
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 0)
-
+pd.set_option('future.no_silent_downcasting', True)
 
 
 df = pd.read_excel(
@@ -13,8 +13,8 @@ df = pd.read_excel(
 )
 
 
-
 df["ОКПО"] = df["ОКПО"].str.replace(" ", "", regex=False)
+
 
 def okpo_split(inn, inn2):
     def clean(value):
@@ -40,14 +40,10 @@ def okpo_split(inn, inn2):
     if result is not None:
         return result
 
-    return clean(inn2)  # проверяется тем же правилом; если не пройдёт — вернёт None
+    return clean(inn2)
 
 
-
-# Применяем функцию okpo_split к нужной колонке
 df["ОКПО"] = [okpo_split(a, b) for a, b in zip(df["ОКПО"], df["ОКПО (дистрибъютор)"])]
-
-
 
 
 # "n/a" из Excel -> NaN
@@ -60,11 +56,9 @@ df["mock_id"] = df["Организация(эталонId)"]
 # Маска: строки, где "Организация" пустая (признак ошибки)
 mask_na_org = df["Организация"].isna()
 
-# Среди этих строк считаем кол-во уникальных донор-имён на каждый эталонId
 nunique_names = df.loc[mask_na_org].groupby("Организация(эталонId)")["Имя организации (дистрибъютор)"] \
                    .transform(lambda x: x.dropna().nunique())
 
-# Разделяем на "одно имя" и "несколько имён"
 idx_single = nunique_names[nunique_names == 1].index
 idx_multi = nunique_names[nunique_names > 1].index
 
@@ -88,14 +82,16 @@ def fill_single_group(g):
     g["Почтовый адрес (организация)"] = pick_address(g)
     return g
 
-df.loc[idx_single] = df.loc[idx_single].groupby("Организация(эталонId)", group_keys=False).apply(fill_single_group)
+df.loc[idx_single] = df.loc[idx_single].groupby(
+    "Организация(эталонId)", group_keys=False
+).apply(fill_single_group, include_groups=False)
 
 
 # --- Случай 2: несколько уникальных донор-имён на один эталонId ---
 mock_id_map = {}
 current_id = 999999
 
-def fill_multi_group(g):
+def fill_multi_group(etalon_id, g):
     global current_id
     parts = []
 
@@ -107,7 +103,7 @@ def fill_multi_group(g):
         sub["Организация"] = pick_name(sub)
         sub["Почтовый адрес (организация)"] = pick_address(sub)
 
-        key = (sub["Организация(эталонId)"].iloc[0], "okpo", okpo_value)
+        key = (etalon_id, "okpo", okpo_value)
         if key not in mock_id_map:
             mock_id_map[key] = current_id
             current_id -= 1
@@ -121,7 +117,7 @@ def fill_multi_group(g):
         sub["Организация"] = pick_name(sub)
         sub["Почтовый адрес (организация)"] = pick_address(sub)
 
-        key = (sub["Организация(эталонId)"].iloc[0], "name", name_value)
+        key = (etalon_id, "name", name_value)
         if key not in mock_id_map:
             mock_id_map[key] = current_id
             current_id -= 1
@@ -131,7 +127,12 @@ def fill_multi_group(g):
 
     return pd.concat(parts)
 
-df.loc[idx_multi] = df.loc[idx_multi].groupby("Организация(эталонId)", group_keys=False).apply(fill_multi_group)
+result_parts = []
+for etalon_id, g in df.loc[idx_multi].groupby("Организация(эталонId)"):
+    result_parts.append(fill_multi_group(etalon_id, g))
+
+if result_parts:
+    df.loc[idx_multi] = pd.concat(result_parts)
 
 
 # NULL/пустые ячейки Excel -> NaN, если ещё не приведено
@@ -143,8 +144,6 @@ for col in ["Почтовый адрес (организация)", "ОКПО"]:
     df[col] = df.groupby("mock_id")[col].transform(
         lambda x: x.ffill().bfill()
     )
-
-
 
 
 # ============================================================
@@ -177,18 +176,12 @@ def first_region_combo(g):
         first_vals = sub.iloc[0]
     return pd.DataFrame([first_vals] * len(g), index=g.index)
 
-df[["Область", "Населенный пункт"]] = df.groupby("mock_id", group_keys=False).apply(
-    lambda g: first_region_combo(g)
-)
-
-
-
-
-
+df[["Область", "Населенный пункт"]] = df.groupby(
+    "mock_id", group_keys=False
+).apply(lambda g: first_region_combo(g), include_groups=False)
 
 
 conn = sq.connect('../../02_Database/01_Sales_DB/Sales.db')
-
 
 
 cols_for_sales = [
@@ -213,11 +206,6 @@ cols_for_orgs_reference = [
 df_sales = df[cols_for_sales].copy()
 df_orgs = df[cols_for_orgs_reference].copy().drop_duplicates(ignore_index=True)
 
-# print(df_sales.head())
-
-
-
-
 
 df_sales.to_sql('629Sales', conn, if_exists='replace', index=False)
 df_orgs.to_sql('Organizations', conn, if_exists='replace', index=False)
@@ -225,4 +213,3 @@ df_orgs.to_sql('Organizations', conn, if_exists='replace', index=False)
 conn.close()
 
 print("Готово: таблица записана в Sales.db")
-
