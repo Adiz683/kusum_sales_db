@@ -8,7 +8,9 @@ from dictionaries import df_regions, create_drug_id
 
 conn = sq.connect('../../02_Database/01_Sales_DB/Sales.db') #Создание общей базы данных
 cursor = conn.cursor()
-# cursor.execute(f'''DROP TABLE IF EXISTS "Distributors"''')
+# cursor.execute(f'''DROP TABLE IF EXISTS "ND"''')
+
+
 
 
 
@@ -98,43 +100,12 @@ cursor = conn.cursor()
 
 
 
-# DISTRIBUTORS UPDATE
-# df_distr_by_year = pd.read_excel(io="../../01_Data_Source/02_Reference/03_Distributors.xlsx",
-#                         sheet_name="Distr_by_year")
-#
-# df_distr_by_year.to_sql("Distributors", conn, if_exists="replace", index=False)
+#DISTRIBUTORS UPDATE
+df_distr_by_year = pd.read_excel(io="../../01_Data_Source/02_Reference/03_Distributors.xlsx",
+                        sheet_name="Distr_by_year")
 
+df_distr_by_year.to_sql("Distributors", conn, if_exists="replace", index=False)
 
-
-
-
-
-# ORG_ID UPDATE
-df_org = pd.read_excel(io="../../01_Data_Source/01_Exported_data/02_629_H3_CRM/2021.01.01_export_regional_sales.xlsx", header=1)
-# 'Дата отгрузки'
-# Оставляем только нужные столбцы
-columns = [
-    "Организация(эталонId)",
-    "Область",
-    "Населенный пункт",
-    "Организация",
-    "Почтовый адрес (организация)",
-    "ОКПО"
-]
-df_org = df_org[columns]
-
-# Удаляем дубликаты по ключу
-df_org = df_org.drop_duplicates(subset=["Организация(эталонId)"])
-
-# df_org = df_org.drop(['Год', 'Месяц', 'Неделя', 'Дата отгрузки', 'Территория', 'Полигон',
-#        'Категория товарооборота', 'Вид организации', 'Тип Организации',
-#        'Гл. Офис Сети', 'Гл. Офис ОКПО', 'Группа товара', 'Группа товара 2',
-#        'Бренд', 'Товар', 'Количество (IN)', 'Сумма (IN)',
-#        'Адрес, Название, ОКПО(отчет дистрибьютора)', 'Сотрудник'],
-#        axis=1, errors='ignore')
-print(df_org.head(20))
-# print(df_org.columns)
-df_org.to_sql("Organizations", conn, if_exists="replace", index=False)
 
 
 

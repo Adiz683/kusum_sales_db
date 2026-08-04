@@ -85,6 +85,75 @@ def sales102_parser (files, all_data):
 
 
 
+def nd_weekly_parser(files, all_data, conn):
+    """
+    Парсер для еженедельных/ежемесячных файлов "ND_Weekly" (Qlik), например:
+    "2025.01.01_SS_Weekly.xlsx"
+
+    Ожидаемые столбцы в файле (некоторые с лишними пробелами в исходнике,
+    поэтому сначала обрезаем пробелы в названиях столбцов):
+    "Организация", "Область", " Город", "Адрес", "Препарат", " Дистрибутор",
+    " Дата ", "Упаковки Факт ", "Суммы Факт", "EDRPO" (это ОКПО)
+    """
+    for file in files:
+        file_date = dct.extract_file_date(file)
+        df = pd.read_excel(file)
+
+        # убираем лишние/неразрывные пробелы в названиях столбцов
+        df.columns = (
+            df.columns.astype(str)
+            .str.replace("\xa0", " ", regex=False)
+            .str.strip()
+        )
+
+        # ищем столбец с ОКПО без учёта регистра и возможных вариантов написания
+        # (в разных выгрузках встречается "EDRPO", "Edrpo", "ЕДРПОУ" и т.п.)
+        edrpo_candidates = ["EDRPO", "EDRPOU", "ЕДРПОУ", "ОКПО"]
+        edrpo_col = next(
+            (c for c in df.columns if c.strip().upper() in [x.upper() for x in edrpo_candidates]),
+            None
+        )
+        if edrpo_col is None:
+            raise KeyError(
+                f"Не найден столбец с ОКПО (искали {edrpo_candidates}) в файле {file}.\n"
+                f"Реальные столбцы в файле: {list(df.columns)}"
+            )
+
+        # валидация ОКПО (9 цифр, начинается на 2 или 3, иначе - None)
+        df["ОКПО"] = dct.validate_okpo(df[edrpo_col])
+
+        # справочники
+        df["Область ID"] = df["Область"].map(dct.regions_dict)
+        df["Дистрибьютор ID"] = df["Дистрибутор"].map(dct.distrs_dict)
+
+        df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True)
+        df["Год"] = df["Дата"].dt.year
+        df["Товар ID"] = dct.create_drug_id(left_table=df, drug_name="Препарат", year="Год")
+
+        # получаем/создаём Орг ID клиента (по связке ОКПО + Область, см. dct.get_or_create_org_id)
+        df = dct.get_or_create_org_id(df, conn, record_date=file_date)
+
+        df.rename(columns={"Упаковки Факт": "Факт шт.", "Суммы Факт": "Факт сумма"}, inplace=True)
+
+        df = df.drop(
+            ["Организация", "Область", "Город", "Адрес", "Препарат", "Дистрибутор", edrpo_col, "Год"],
+            axis=1, errors="ignore"
+        )
+
+        df = df.groupby(
+            by=["Дата", "Область ID", "Орг ID", "ОКПО", "Товар ID", "Дистрибьютор ID"], as_index=False,
+            dropna=False
+        ).sum()
+
+        col_order = ["Дата", "Область ID", "Орг ID", "ОКПО", "Товар ID", "Дистрибьютор ID", "Факт шт.", "Факт сумма"]
+        df = df[col_order]
+
+        all_data = pd.concat([all_data, df], ignore_index=True)
+        print(f"Файл {file} добавлен в DataFrame all_data")
+
+    return all_data
+
+
 def stock_parser (files, all_data):
     for file in files:
         df = pd.read_excel(file)

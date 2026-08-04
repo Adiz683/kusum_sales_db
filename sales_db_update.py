@@ -132,6 +132,8 @@ def db_table_updater(report_name, year=None, month=None, date=None):
         all_data = prs.stock_parser(files=files, all_data=all_data)
     elif report_name == "Sales102":
         all_data = prs.sales102_parser(files=files, all_data=all_data)
+    elif report_name == "ND":
+        all_data = prs.nd_weekly_parser(files=files, all_data=all_data, conn=conn)
     else:
         print("⚠️ Файлы для этого отчета не найдены. Обновление не произошло.")
         conn.close()
