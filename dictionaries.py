@@ -56,7 +56,16 @@ def create_drug_id (left_table, drug_name, year):
     return drug_id["Drug ID"]
 
 
-# ВАЛИДАЦИЯ ОКПО (EDRPO)
+
+
+
+
+
+
+
+
+
+# ВАЛИДАЦИЯ ОКПО (EDRPO) из ПАРСЕР НД
 # Валидное ОКПО - это 9-значное число, начинающееся на 2 или 3.
 # Всё остальное (пусто, другая длина, другая первая цифра, мусор) превращаем в None.
 def validate_okpo(series):

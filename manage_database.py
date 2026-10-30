@@ -8,7 +8,7 @@ from dictionaries import df_regions, create_drug_id
 
 conn = sq.connect('../../02_Database/01_Sales_DB/Sales.db') #Создание общей базы данных
 cursor = conn.cursor()
-# cursor.execute(f'''DROP TABLE IF EXISTS "ND"''')
+# cursor.execute(f'''DROP TABLE IF EXISTS "629Sales"''')
 
 
 
@@ -46,6 +46,38 @@ cursor = conn.cursor()
 #
 # df_price.to_sql("Price", conn, if_exists="replace", index=False)
 # print(df_price)
+
+
+
+
+
+
+
+
+
+
+
+# EVENTS UPDATE
+# df_events = pd.read_excel(io="../../01_Data_Source/02_Reference/07_Events.xlsx")
+#
+#
+# df_events['Дата'] = pd.to_datetime(df_events['Дата'])
+# df_events['product_id'] = create_drug_id(df_events, df_events['Товар'], df_events["Дата"].dt.year)
+#
+# df_events.to_sql("Events", conn, if_exists="replace", index=False)
+# print(df_events)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -101,13 +133,21 @@ cursor = conn.cursor()
 
 
 #DISTRIBUTORS UPDATE
-df_distr_by_year = pd.read_excel(io="../../01_Data_Source/02_Reference/03_Distributors.xlsx",
-                        sheet_name="Distr_by_year")
+# df_distr_by_year = pd.read_excel(io="../../01_Data_Source/02_Reference/03_Distributors.xlsx",
+#                         sheet_name="Distr_by_year")
+#
+# df_distr_by_year.to_sql("Distributors", conn, if_exists="replace", index=False)
 
-df_distr_by_year.to_sql("Distributors", conn, if_exists="replace", index=False)
 
 
 
+
+
+
+#USD RATE UPDATE
+# df_usd_rate = pd.read_excel(io="../../01_Data_Source/02_Reference/99_USD_Rates/USD_Rates.xlsx")
+#
+# df_usd_rate.to_sql("USD_Rates", conn, if_exists="replace", index=False)
 
 
 
